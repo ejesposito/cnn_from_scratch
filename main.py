@@ -4,8 +4,7 @@ import scipy.io as sc
 import cv2
 
 from dataset import DataSet
-from vgg16pretrained import VGG16Pretrained
-
+from trainer import Trainer
 
 if __name__ == '__main__':
     # load the dataset in memory
@@ -32,4 +31,6 @@ if __name__ == '__main__':
     #cv2.imshow('image', image)
     #cv2.waitKey(0)
     # train the classifier
-    vgg16_pretrained = VGG16Pretrained(data_set.train, data_set.test)
+    # crete torch instance
+    trainer = Trainer(data_set.train, data_set.test)
+    trainer.train_nn()

@@ -3,7 +3,9 @@ from pathlib import Path
 
 import h5py
 import numpy as np
+from PIL import Image
 import cv2
+
 
 class DataSet(object):
 
@@ -67,9 +69,9 @@ class DataSet(object):
     def _create_preprocessed_dataset(self, dataset_dir, preprocessed_dir, file_name):
         # create numpy structure dtype
         image_dt = np.dtype((np.float32, (48,48,3)))
-        structure = [('image', image_dt), ('number_digits', np.uint8),
-                     ('d1', np.int8), ('d2', np.int8),
-                     ('d3', np.int8), ('d4', np.int8)]
+        structure = [('image', image_dt), ('number_digits', np.int32),
+                     ('d1', np.int32), ('d2', np.int32),
+                     ('d3', np.int32), ('d4', np.int32)]
         # laod data into numpy struct
         mat_data = h5py.File(os.path.join(dataset_dir, 'digitStruct.mat'))
         size = mat_data['/digitStruct/name'].size
@@ -89,9 +91,10 @@ class DataSet(object):
             rescaled_image = cv2.normalize(resized_img, None, alpha=0, beta=1,
                                             norm_type=cv2.NORM_MINMAX, dtype=cv2.CV_32F)
             # transform image from BGR (opencv) to RGB (pil, used by pytorch)
-            rescaled_image_blue = rescaled_image[:,:,0]
-            rescaled_image[:,:,0] = rescaled_image[:,:,2]
-            rescaled_image[:,:,2] = rescaled_image_blue
+            #rescaled_image_blue = rescaled_image[:,:,0]
+            #rescaled_image[:,:,0] = rescaled_image[:,:,2]
+            #rescaled_image[:,:,2] = rescaled_image_blue
+            rescaled_image = cv2.cvtColor(rescaled_image, cv2.COLOR_BGR2RGB)
             # normalize image with mean and std
             normalized_image = rescaled_image - np.array([0.485, 0.456, 0.406])
             normalized_image = normalized_image / np.array([0.229, 0.224, 0.225])
@@ -100,29 +103,29 @@ class DataSet(object):
             dataset[i]['image'] = normalized_image
             dataset[i]['number_digits'] = len(img_data['label'])
             if dataset[i]['number_digits'] > 4:
-                dataset[i]['d1'] = -1
-                dataset[i]['d2'] = -1
-                dataset[i]['d3'] = -1
-                dataset[i]['d4'] = -1
+                dataset[i]['d1'] = 10
+                dataset[i]['d2'] = 10
+                dataset[i]['d3'] = 10
+                dataset[i]['d4'] = 10
             elif dataset[i]['number_digits'] == 4:
                 dataset[i]['d1'] = img_data['label'][0]
                 dataset[i]['d2'] = img_data['label'][1]
                 dataset[i]['d3'] = img_data['label'][2]
                 dataset[i]['d4'] = img_data['label'][3]
             elif dataset[i]['number_digits'] == 3:
-                dataset[i]['d1'] = -1
+                dataset[i]['d1'] = 10
                 dataset[i]['d2'] = img_data['label'][0]
                 dataset[i]['d3'] = img_data['label'][1]
                 dataset[i]['d4'] = img_data['label'][2]
             elif dataset[i]['number_digits'] == 2:
-                dataset[i]['d1'] = -1
-                dataset[i]['d2'] = -1
+                dataset[i]['d1'] = 10
+                dataset[i]['d2'] = 10
                 dataset[i]['d3'] = img_data['label'][0]
                 dataset[i]['d4'] = img_data['label'][1]
             elif dataset[i]['number_digits'] == 1:
-                dataset[i]['d1'] = -1
-                dataset[i]['d2'] = -1
-                dataset[i]['d3'] = -1
+                dataset[i]['d1'] = 10
+                dataset[i]['d2'] = 10
+                dataset[i]['d3'] = 10
                 dataset[i]['d4'] = img_data['label'][0]
         dataset = dataset[dataset['number_digits'] <= 4]
         np.save(os.path.join(preprocessed_dir, file_name), dataset)
