@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+import time
 
 import h5py
 import numpy as np
@@ -21,20 +22,21 @@ class Trainer(object):
         self.train = train
         self.test = test
         # create the data loader for torch
+        #torch.multiprocessing.set_start_method("spawn")
         train_torch_dataset = TorchDataSet(train['image'],
                                            train[['number_digits', 'd1', 'd2', 'd3', 'd4']])
         test_torch_dataset = TorchDataSet(test['image'],
                                           test[['number_digits', 'd1', 'd2', 'd3', 'd4']])
         self.train_loader = DataLoader(train_torch_dataset, batch_size=64, shuffle=True,
-                                       num_workers=32)
+                                       num_workers=0)
         self.test_loder = DataLoader(train_torch_dataset, batch_size=64, shuffle=True,
-                                    num_workers=32)
+                                    num_workers=0)
         # load the pretrained model
         self.vgg16_pretrained = VGG16Pretrained()
         print(self.vgg16_pretrained)
         # move model to GPU if CUDA is available
         if torch.cuda.is_available():
-            self.vgg16_pretrained = self.vgg16_pretrained.cuda()
+            self.vgg16_pretrained.cuda(1)
 
     def train_nn(self):
         # select loss function
@@ -42,7 +44,7 @@ class Trainer(object):
         # select optimizer
         optimizer_transfer = optim.SGD(self.vgg16_pretrained.classifier.parameters(), lr = 0.001)
         # number of epochs
-        n_epochs = 10
+        n_epochs = 100
         # train the model
         self.vgg16_pretrained = self._train(n_epochs, self.train_loader, self.vgg16_pretrained, optimizer_transfer, criterion_transfer, 'model_transfer.pt')
 
@@ -50,6 +52,7 @@ class Trainer(object):
         # initialize tracker for minimum validation loss
         valid_loss_min = np.Inf
         for epoch in range(1, n_epochs+1):
+            start = time.time()
             # initialize variables to monitor training and validation loss
             train_loss = 0.0
             valid_loss = 0.0
@@ -76,11 +79,11 @@ class Trainer(object):
                 optimizer.step()
                 ## record the average training loss, using something like
                 train_loss = train_loss + ((1 / (batch_idx + 1)) * (loss.data - train_loss))
-                print(train_loss)
             # print training statistics
-            print('Epoch: {} \tTraining Loss: {:.6f}'.format(
+            end = time.time()
+            print('Epoch: {} \tTraining Loss: {:.6f} \tTime: {}'.format(
                 epoch,
-                train_loss,
+                train_loss, (end - start) / 60
                 ))
         # return trained model
         return model

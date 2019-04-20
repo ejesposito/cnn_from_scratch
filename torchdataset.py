@@ -27,13 +27,16 @@ class TorchDataSet(Dataset):
         self.d4 = torch.from_numpy(d4).long()
         self.transform = transform
         # move model to GPU if CUDA is available (all the dataset)
+        print('antess')
         if torch.cuda.is_available():
-            self.data = self.data.cuda()
-            self.number_digits = self.number_digits.cuda()
-            self.d1 = self.d1.cuda()
-            self.d2 = self.d2.cuda()
-            self.d3 = self.d3.cuda()
-            self.d4 = self.d4.cuda()
+            self.data = self.data.cuda(1)
+            self.number_digits = self.number_digits.cuda(1)
+            print('despues de la data')
+            self.d1 = self.d1.cuda(1)
+            self.d2 = self.d2.cuda(1)
+            self.d3 = self.d3.cuda(1)
+            self.d4 = self.d4.cuda(1)
+            print('despues')
 
     def __getitem__(self, index):
         x = self.data[index]
