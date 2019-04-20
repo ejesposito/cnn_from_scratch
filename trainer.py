@@ -46,9 +46,9 @@ class Trainer(object):
         # number of epochs
         n_epochs = 100
         # train the model
-        self.vgg16_pretrained = self._train(n_epochs, self.train_loader, self.vgg16_pretrained, optimizer_transfer, criterion_transfer, 'model_transfer.pt')
+        self.vgg16_pretrained = self._train(n_epochs, self.train_loader, self.test_loader, self.vgg16_pretrained, optimizer_transfer, criterion_transfer, 'model_transfer.pt')
 
-    def _train(self, n_epochs, loaders, model, optimizer, criterion, save_path):
+    def _train(self, n_epochs, loaders, test_loader, model, optimizer, criterion, save_path):
         # initialize tracker for minimum validation loss
         valid_loss_min = np.Inf
         for epoch in range(1, n_epochs+1):
@@ -79,11 +79,42 @@ class Trainer(object):
                 optimizer.step()
                 ## record the average training loss, using something like
                 train_loss = train_loss + ((1 / (batch_idx + 1)) * (loss.data - train_loss))
+            ######################
+            # validate the model #
+            ######################
+            model.eval()
+            number_correct = 0
+            for batch_idx, (data, target) in enumerate(test_loader):
+                target_nd, target_d1, target_d2, target_d3, target_d4 = target
+                ## update the average validation loss
+                # obtain the prediction
+                pred_nd, pred_d1, pred_d2, pred_d3, pred_d4 = model(data)
+                # calculate the error
+                loss_nd = criterion(pred_nd, target_nd)
+                loss_d1 = criterion(pred_d1, target_d1)
+                loss_d2 = criterion(pred_d2, target_d2)
+                loss_d3 = criterion(pred_d3, target_d3)
+                loss_d4 = criterion(pred_d4, target_d4)
+                loss = loss_nd + loss_d1 + loss_d2 + loss_d3 + loss_d4
+                # record the average validation loss
+                valid_loss = valid_loss + ((1 / (batch_idx + 1)) * (loss.data - valid_loss))
+                # eval
+                length_prediction = pred_nd.max(1)[1]
+                digit1_prediction = pred_d1.max(1)[1]
+                digit2_prediction = pred_d2.max(1)[1]
+                digit3_prediction = pred_d3.max(1)[1]
+                digit4_prediction = pred_d4.max(1)[1]
+                number_correct += float((length_prediction.eq(target_nd) &
+                                         digit1_prediction.eq(target_d1) &
+                                         digit2_prediction.eq(target_d1) &
+                                         digit3_prediction.eq(target_d1) &
+                                         digit4_prediction.eq(target_d1)).sum())
             # print training statistics
+            accuracy = number_correct / len(test_loader)
             end = time.time()
-            print('Epoch: {} \tTraining Loss: {:.6f} \tTime: {}'.format(
+            print('Epoch: {} \tTraining Loss: {:.6f} \tValidation Loss: {:.6f} \tAccuracy: {}\tTime: {}'.format(
                 epoch,
-                train_loss, (end - start) / 60
+                train_loss, valid_loss, accuracy, (end - start) / 60
                 ))
         # return trained model
         return model
