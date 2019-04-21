@@ -29,11 +29,13 @@ class Trainer(object):
                                           test[['number_digits', 'd1', 'd2', 'd3', 'd4']])
         self.train_loader = DataLoader(train_torch_dataset, batch_size=64, shuffle=True,
                                        num_workers=0)
-        self.test_loder = DataLoader(train_torch_dataset, batch_size=64, shuffle=True,
+        self.test_loader = DataLoader(test_torch_dataset, batch_size=64, shuffle=True,
                                     num_workers=0)
         # load the pretrained model
         self.vgg16_pretrained = VGG16Pretrained()
         print(self.vgg16_pretrained)
+        #for param in vgg16_pretrained.features.parameters():
+            #param.requires_grad = False
         # move model to GPU if CUDA is available
         if torch.cuda.is_available():
             self.vgg16_pretrained.cuda(1)
@@ -42,9 +44,9 @@ class Trainer(object):
         # select loss function
         criterion_transfer = nn.CrossEntropyLoss()
         # select optimizer
-        optimizer_transfer = optim.SGD(self.vgg16_pretrained.classifier.parameters(), lr = 0.001)
+        optimizer_transfer = optim.SGD(self.vgg16_pretrained.classifier.parameters(), lr = 0.1)
         # number of epochs
-        n_epochs = 100
+        n_epochs = 200
         # train the model
         self.vgg16_pretrained = self._train(n_epochs, self.train_loader, self.test_loader, self.vgg16_pretrained, optimizer_transfer, criterion_transfer, 'model_transfer.pt')
 
@@ -84,6 +86,8 @@ class Trainer(object):
             ######################
             model.eval()
             number_correct = 0
+            total = 0
+            print('Number correct before validate: {}'.format(number_correct))
             for batch_idx, (data, target) in enumerate(test_loader):
                 target_nd, target_d1, target_d2, target_d3, target_d4 = target
                 ## update the average validation loss
@@ -104,15 +108,23 @@ class Trainer(object):
                 digit2_prediction = pred_d2.max(1)[1]
                 digit3_prediction = pred_d3.max(1)[1]
                 digit4_prediction = pred_d4.max(1)[1]
-                number_correct += float((length_prediction.eq(target_nd) &
-                                         digit1_prediction.eq(target_d1) &
-                                         digit2_prediction.eq(target_d1) &
-                                         digit3_prediction.eq(target_d1) &
-                                         digit4_prediction.eq(target_d1)).sum())
+                #print('pred nd: {}'.format(pred_nd))
+                #print('max nd pred tensor: {}'.format(length_prediction))
+                #print('nd target tensor: {}'.format(target_nd))
+                number_correct_this = (length_prediction.eq(target_nd) &
+                                       digit1_prediction.eq(target_d1) &
+                                       digit2_prediction.eq(target_d2) &
+                                       digit3_prediction.eq(target_d3) &
+                                       digit4_prediction.eq(target_d4)).sum()
+                number_correct = number_correct + number_correct_this
+                total = total + float(data.shape[0])
+                #print('number correct this: {}'.format(number_correct_this))
             # print training statistics
-            accuracy = number_correct / len(test_loader)
+            accuracy = number_correct.item() / total * 100.
             end = time.time()
-            print('Epoch: {} \tTraining Loss: {:.6f} \tValidation Loss: {:.6f} \tAccuracy: {}\tTime: {}'.format(
+            print(total)
+            print(number_correct)
+            print('Epoch: {} \tTraining Loss: {:.6f} \tValidation Loss: {:.6f} \tAccuracy: {}%\tTime: {}'.format(
                 epoch,
                 train_loss, valid_loss, accuracy, (end - start) / 60
                 ))

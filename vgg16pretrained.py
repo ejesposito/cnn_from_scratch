@@ -15,7 +15,7 @@ class VGG16Pretrained(nn.Module):
 
     def __init__(self):
         super(VGG16Pretrained, self).__init__()
-        vgg16 = models.vgg16(pretrained=True)
+        vgg16 = models.vgg16(pretrained=False)
         print(vgg16)
         # copy vgg16 features and create sequence
         self.features = nn.Sequential(*list(vgg16.features.children())[0:31])
