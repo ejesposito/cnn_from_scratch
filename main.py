@@ -12,25 +12,12 @@ if __name__ == '__main__':
     # print dataset stats
     print('Train size: {}'.format(data_set.train.shape))
     print('Test size: {}'.format(data_set.test.shape))
-    # example of use of the nympy structured array for train
-    image = data_set.train[0]['image']
-    print('Train image number of digits: {}'.format(data_set.train[0]['number_digits']))
-    print('D1: {}'.format(data_set.train[0]['d1']))
-    print('D2: {}'.format(data_set.train[0]['d2']))
-    print('D3: {}'.format(data_set.train[0]['d3']))
-    print('D4: {}'.format(data_set.train[0]['d4']))
-    #cv2.imshow('image', image)
-    #cv2.waitKey(0)
-    # example of use of the nympy structured array for test
-    image = data_set.test[0]['image']
-    print('Test image number of digits: {}'.format(data_set.test[0]['number_digits']))
-    print('D1: {}'.format(data_set.test[0]['d1']))
-    print('D2: {}'.format(data_set.test[0]['d2']))
-    print('D3: {}'.format(data_set.test[0]['d3']))
-    print('D4: {}'.format(data_set.test[0]['d4']))
-    #cv2.imshow('image', image)
-    #cv2.waitKey(0)
+    # print samples of the train data set
+    #print('Train samples')
+    #data_set.print_samples(data_set.train, num_samples=20)
+    # print samples of the test data set
+    #print('Test samples')
+    #data_set.print_samples(data_set.test, num_samples=20)
     # train the classifier
-    # crete torch instance
     trainer = Trainer(data_set.train, data_set.test)
     trainer.train_nn()
