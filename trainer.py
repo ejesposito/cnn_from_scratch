@@ -26,14 +26,14 @@ class Trainer(object):
         train_transform = transforms.Compose([
             transforms.RandomCrop([54, 54]),
             transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                 std=[0.229, 0.224, 0.225])
+            #transforms.Normalize(mean=[0.485, 0.456, 0.406],
+            #                     std=[0.229, 0.224, 0.225])
         ])
         validation_transform = transforms.Compose([
             transforms.CenterCrop([54, 54]),
             transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                 std=[0.229, 0.224, 0.225])
+            #transforms.Normalize(mean=[0.485, 0.456, 0.406],
+            #                     std=[0.229, 0.224, 0.225])
         ])
         # load the dataset and apply all the transformation in the GPU before creating the DataLoader
         train_torch_dataset = TorchDataSet(train['image'],
@@ -64,8 +64,8 @@ class Trainer(object):
         # select loss function
         criterion_transfer = nn.CrossEntropyLoss()
         # select optimizer
-        # optimizer_transfer = optim.SGD(self.vgg16_pretrained.classifier.parameters(), lr = 0.01)
-        optimizer_transfer = optim.Adam(self.vgg16_pretrained.classifier.parameters(), lr=0.0001, betas=(0.9, 0.999), amsgrad=True)
+        optimizer_transfer = optim.SGD(self.vgg16_pretrained.classifier.parameters(), lr = 0.01)
+        # optimizer_transfer = optim.Adam(self.vgg16_pretrained.classifier.parameters(), lr=0.0001, betas=(0.9, 0.999), amsgrad=True)
         # number of epochs
         n_epochs = 100
         # train the model

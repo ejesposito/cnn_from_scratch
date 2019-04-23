@@ -21,14 +21,15 @@ class VGG16Pretrained(nn.Module):
         self.features = nn.Sequential(*list(vgg16.features.children()))
         # copy vgg16 classifier except the last layer
         classifier = list(vgg16.classifier.children())[:-1]
-        
         self.avgpool = nn.AdaptiveAvgPool2d((7,7))
         # modify first layer and create sequence
         first_layer = nn.Linear(512*7*7, 4096, bias=True)
-        forth_layer = nn.Linear(4096, 4096, bias=True)
-        classifier[0] = first_layer
-        classifier[3] = forth_layer
-        self.classifier = nn.Sequential(*classifier)
+        second_layer = nn.BatchNorm1d(4096)
+        third_layer = nn.ReLU()
+        fourth_layer = nn.Linear(4096, 4096, bias=True)
+        fifth_layer = nn.BatchNorm1d(4096)
+        sixth_layer = nn.ReLU()
+        self.classifier = nn.Sequential(*[first_layer, second_layer, third_layer, fourth_layer, fifth_layer, sixth_layer])
         # create last layers
         self.layer_number_digits = nn.Linear(4096, 5)
         self.layer_d1 = nn.Linear(4096, 11)
