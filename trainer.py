@@ -49,6 +49,8 @@ class Trainer(object):
                                     num_workers=4)
         # load the pretrained model
         self.vgg16_pretrained = VGG16Pretrained()
+        for param in self.vgg16_pretrained.features.parameters():
+            param.requires_grad = True
         print(self.vgg16_pretrained)
         #for param in vgg16_pretrained.features.parameters():
             #param.requires_grad = False
@@ -62,7 +64,8 @@ class Trainer(object):
         # select loss function
         criterion_transfer = nn.CrossEntropyLoss()
         # select optimizer
-        optimizer_transfer = optim.SGD(self.vgg16_pretrained.classifier.parameters(), lr = 0.1)
+        # optimizer_transfer = optim.SGD(self.vgg16_pretrained.classifier.parameters(), lr = 0.01)
+        optimizer_transfer = optim.Adam(self.vgg16_pretrained.classifier.parameters(), lr=0.0001, betas=(0.9, 0.999), amsgrad=True)
         # number of epochs
         n_epochs = 100
         # train the model
@@ -106,7 +109,7 @@ class Trainer(object):
                 # backpropagate the error
                 loss.backward()
                 optimizer.step()
-                ## record the average training loss, using something like
+                ## record the average training loss
                 train_loss = train_loss + ((1 / (batch_idx + 1)) * (loss.data - train_loss))
                 # eval
                 length_prediction = pred_nd.max(1)[1]
@@ -130,7 +133,6 @@ class Trainer(object):
             model.eval()
             number_correct_test = 0
             total_test = 0
-            print('Number correct before validate: {}'.format(number_correct))
             for batch_idx, (data, target) in enumerate(test_loader):
                 target_nd, target_d1, target_d2, target_d3, target_d4 = target
                 data = data.to(self.device)
@@ -172,6 +174,8 @@ class Trainer(object):
             accuracy_train = number_correct_train.item() / total_train * 100.
             accuracy_test = number_correct_test.item() / total_test * 100.
             end = time.time()
+            print('Train: correct {} - total {}'.format(number_correct_train, total_train))
+            print('Test: correct {} - total {}'.format(number_correct_test, total_test))
             print('Epoch: {} \tTraining Loss: {:.6f} \tValidation Loss: {:.6f} \tTrainig Accuracy: {}% \t Validation Accuracy: {} \tTime: {}'.format(
                 epoch,
                 train_loss, valid_loss, accuracy_train, accuracy_test, (end - start) / 60
