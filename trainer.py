@@ -13,6 +13,7 @@ from torchvision import transforms
 
 from torchdataset import TorchDataSet
 from custommodel import CustomModel
+from vgg16pretrained import VGG16Pretrained
 from evaluator import Evaluator
 
 
@@ -41,6 +42,14 @@ class Trainer(object):
 
         if model_name == 'custom':
             model = CustomModel()
+        elif model_name == 'vgg16_pretrained':
+            model = VGG16Pretrained(use_pretrained_weights=True)
+        elif model_name == 'vgg16':
+            model = VGG16Pretrained(use_pretrained_weights=False)
+        else:
+            model = CustomModel()
+        print('Selected model: {}'.format(model_name))
+
         model.to(device)
 
         transform = transforms.Compose([
@@ -65,6 +74,7 @@ class Trainer(object):
         duration = 0.0
 
         for i in range(n_epochs):
+            print('=> Starting epoch: {}'.format(i))
             for batch_idx, (images, length_labels, digits_labels) in enumerate(train_loader):
                 start_time = time.time()
                 images = images.to(device)

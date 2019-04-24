@@ -13,31 +13,16 @@ import torchvision.models as models
 
 class VGG16Pretrained(nn.Module):
 
-    def __init__(self):
+    def __init__(self, use_pretrained_weights=True):
         super(VGG16Pretrained, self).__init__()
-        """
-        model = models.vgg16(pretrained=True)
-        first_layer_output = model.classifier[0].out_features
-        last_layer_input = model.classifier[-1].in_features
-
-        first_layer = nn.Linear(512, first_layer_output)
-        classifier[0] = first_layer
-
-        layer_number_digits = nn.Linear(last_layer_input, 5)
-        layer_d1 = nn.Linear(last_layer_input, 11)
-        layer_d2 = nn.Linear(last_layer_input, 11)
-        layer_d3 = nn.Linear(last_layer_input, 11)
-        layer_d4 = nn.Linear(last_layer_input, 11)
-        """
-
-        vgg16 = models.vgg16_bn(pretrained=True)
-        print(vgg16)
+        vgg16 = models.vgg16_bn(pretrained=use_pretrained_weights)
         # copy vgg16 features and create sequence
         self.features = nn.Sequential(*list(vgg16.features.children()))
+        # copy vgg16 avgpool
+        self.avgpool = nn.AdaptiveAvgPool2d((7,7))
         # copy vgg16 classifier except the last layer
         classifier = list(vgg16.classifier.children())[:-1]
-        self.avgpool = nn.AdaptiveAvgPool2d((7,7))
-        # modify first layer and create sequence
+        # modify first layer and create sequence for the output
         first_layer = nn.Linear(512*7*7, 4096, bias=True)
         second_layer = nn.BatchNorm1d(4096)
         third_layer = nn.ReLU()
