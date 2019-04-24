@@ -11,6 +11,7 @@ class DataSet(object):
 
     TRAIN_DATASET_DIR = 'dataset/train'
     TEST_DATASET_DIR = 'dataset/test'
+    EXTRA_DATASET_DIR = 'dataset/extra'
     PREPROCESSED_DIR = 'preprocessed'
     TRAIN_NPY = 'preprocessed/train.npy'
     TEST_NPY = 'preprocessed/test.npy'
@@ -21,8 +22,11 @@ class DataSet(object):
         if not train_file.is_file():
             print('Creating train.npy')
             self.train = self._create_preprocessed_dataset(self.TRAIN_DATASET_DIR,
-                                                           self.PREPROCESSED_DIR, file_name='train.npy',
                                                            add_negative_samples = True)
+            self.extra = self._create_preprocessed_dataset(self.EXTRA_DATASET_DIR,
+                                                           add_negative_samples = False)
+            self.train = self._stack_structured_arrays(self.train, self.extra)
+            np.save(os.path.join(self.PREPROCESSED_DIR, 'train.npy'), self.train)
         else:
             print('Loading train.npy')
             self.train = np.load(self.TRAIN_NPY)
@@ -31,8 +35,8 @@ class DataSet(object):
         if not test_file.is_file():
             print('Creating test.npy')
             self.test = self._create_preprocessed_dataset(self.TEST_DATASET_DIR,
-                                                          self.PREPROCESSED_DIR, file_name='test.npy',
                                                           add_negative_samples = False)
+            np.save(os.path.join(self.PREPROCESSED_DIR, 'test.npy'), self.test)
         else:
             print('Loading test.npy')
             self.test = np.load(self.TEST_NPY)
@@ -68,7 +72,7 @@ class DataSet(object):
         name = hdf5_data['/digitStruct/name']
         return ''.join([chr(v[0]) for v in hdf5_data[name[index][0]].value])
 
-    def _create_preprocessed_dataset(self, dataset_dir, preprocessed_dir, file_name, add_negative_samples = False):
+    def _create_preprocessed_dataset(self, dataset_dir, add_negative_samples = False):
         # create numpy structure dtype
         image_dt = np.dtype((np.float32, (64,64,3)))
         structure = [('image', image_dt), ('number_digits', np.int32),
@@ -113,7 +117,7 @@ class DataSet(object):
             dataset[i]['image'] = np_img.astype(np.float32)
             #img.show()
             #cv2.imshow('image2', dataset[i]['image'].astype(np.uint8))
-            #v2.waitKey(0)
+            #cv2.waitKey(0)
             dataset[i]['number_digits'] = len(img_data['label'])
             #print(img_data['label'])
             if dataset[i]['number_digits'] > 4:
@@ -338,8 +342,17 @@ class DataSet(object):
             dataset = dataset_final
             idx_rnd = np.random.permutation(dataset.shape[0])
             dataset = dataset[idx_rnd]
-        np.save(os.path.join(preprocessed_dir, file_name), dataset)
         return dataset
+
+    def _stack_structured_arrays(self, arr_1, arr_2):
+        image_dt = np.dtype((np.float32, (64,64,3)))
+        structure = [('image', image_dt), ('number_digits', np.int32),
+                     ('d1', np.int32), ('d2', np.int32),
+                     ('d3', np.int32), ('d4', np.int32)]
+        dataset_all = np.empty(arr_1.shape[0] + arr_2.shape[0], dtype=structure)
+        dataset_all[0:arr_1.shape[0]] = arr_1
+        dataset_all[arr_1.shape[0]:arr_1.shape[0]+arr_2.shape[0]] = arr_2
+        return dataset_all
 
     def print_samples(self, data, num_samples):
         idx_rnd = np.random.randint(0, data.shape[0], num_samples)
