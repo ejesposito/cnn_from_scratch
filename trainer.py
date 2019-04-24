@@ -1,233 +1,108 @@
+import argparse
 import os
-from pathlib import Path
 import time
+from datetime import datetime
 
-import h5py
 import numpy as np
-import cv2
-
 import torch
-from torch.utils.data import DataLoader
-from torchvision import transforms
-import torch.nn as nn
+import torch.nn.functional
 import torch.optim as optim
+import torch.utils.data
+from torch.optim.lr_scheduler import StepLR
+from torchvision import transforms
 
 from torchdataset import TorchDataSet
-from vgg16pretrained import VGG16Pretrained
+from custommodel import CustomModel
+from evaluator import Evaluator
 
 
 class Trainer(object):
 
-    def __init__(self, train, test):
-        # load or create train dataset
+    def __init__(self, train, test, params):
         self.train = train
         self.test = test
-        # define transformations
-        train_transform = transforms.Compose([
+        self.params = params
+
+    def fit(self):
+        model_name = self.params['model']
+        cuda = self.params['cuda']
+        n_workers = self.params['n_workers']
+        n_epochs = self.params['epochs']
+        batch_size = self.params['batch_size']
+        initial_learning_rate = self.params['learning_rate']
+        momentum = self.params['momentum']
+        weight_decay = self.params['weight_decay']
+        decay_steps = self.params['decay_steps']
+        decay_rate = self.params['decay_rate']
+
+        device = torch.device('cpu')
+        if torch.cuda.is_available():
+            device = torch.device(cuda)
+
+        if model_name == 'custom':
+            model = CustomModel()
+        model.to(device)
+
+        transform = transforms.Compose([
             transforms.RandomCrop([54, 54]),
             transforms.ToTensor(),
-            #transforms.Normalize(mean=[0.5, 0.5, 0.5],
-            #                     std=[0.5, 0.5, 0.5])
-            #transforms.Normalize(mean=[0.485, 0.456, 0.406],
-            #                     std=[0.229, 0.224, 0.225])
+            transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
         ])
-        validation_transform = transforms.Compose([
-            transforms.CenterCrop([54, 54]),
-            transforms.ToTensor(),
-            #transforms.Normalize(mean=[0.5, 0.5, 0.5],
-            #                     std=[0.5, 0.5, 0.5])
-            #transforms.Normalize(mean=[0.485, 0.456, 0.406],
-            #                     std=[0.229, 0.224, 0.225])
-        ])
-        # load the dataset and apply all the transformation in the GPU before creating the DataLoader
-        train_torch_dataset = TorchDataSet(train['image'],
-                                           train[['number_digits', 'd1', 'd2', 'd3', 'd4']],
-                                           train_transform)
-        test_torch_dataset = TorchDataSet(test['image'],
-                                          test[['number_digits', 'd1', 'd2', 'd3', 'd4']],
-                                          validation_transform)
-        # create the data loaders
-        self.train_loader = DataLoader(train_torch_dataset, batch_size=4, shuffle=True,
-                                       num_workers=4)
-        self.test_loader = DataLoader(test_torch_dataset, batch_size=4, shuffle=True,
-                                      num_workers=4)
-        # load the pretrained model
-        self.vgg16_pretrained = VGG16Pretrained()
-        for param in self.vgg16_pretrained.features.parameters():
-            param.requires_grad = True
-        print(self.vgg16_pretrained)
-        #for param in vgg16_pretrained.features.parameters():
-            #param.requires_grad = False
-        # move model to GPU if CUDA is available
-        self.device = torch.device('cpu')
-        if torch.cuda.is_available():
-            self.device = torch.device('cuda:1')
-        self.vgg16_pretrained.to(self.device)
+        train_loader = torch.utils.data.DataLoader(TorchDataSet(self.train['image'],
+                                                                self.train[['number_digits', 'd1', 'd2', 'd3', 'd4']],
+                                                                transform),
+                                                   batch_size=batch_size, shuffle=True,
+                                                   num_workers=n_workers, pin_memory=True)
+        evaluator = Evaluator(self.test, cuda)
+        optimizer = optim.SGD(model.parameters(), lr=initial_learning_rate, momentum=momentum, weight_decay=weight_decay)
+        scheduler = StepLR(optimizer, step_size=decay_steps, gamma=decay_rate)
+        losses = np.empty([0], dtype=np.float32)
 
-    def train_nn(self):
-        # select loss function
-        criterion_transfer = nn.CrossEntropyLoss()
-        # select optimizer
-        optimizer_transfer = optim.SGD(self.vgg16_pretrained.classifier.parameters(), lr = 0.01)
-        # optimizer_transfer = optim.Adam(self.vgg16_pretrained.classifier.parameters(), lr=0.0001, betas=(0.9, 0.999), amsgrad=True)
-        # number of epochs
-        n_epochs = 100
-        # train the model
-        self.vgg16_pretrained = self._train(n_epochs, self.train_loader, self.test_loader, self.vgg16_pretrained, optimizer_transfer, criterion_transfer, 'model_transfer.pt')
+        num_steps_to_show_loss = 100
+        num_steps_to_check = 1000
+        step = 0
+        best_accuracy = 0.0
+        duration = 0.0
 
-    def _train(self, n_epochs, loaders, test_loader, model, optimizer, criterion, save_path):
-        # initialize tracker for minimum validation loss
-        for epoch in range(1, n_epochs+1):
-            start = time.time()
-            # initialize variables to monitor training and validation loss
-            train_loss = 0.0
-            valid_loss = 0.0
-            ###################
-            # train the model #
-            ###################
-            model.train()
-            number_correct_train = 0
-            total_train = 0
-            for batch_idx, (data, target) in enumerate(loaders):
-                # move data to device
-                target_nd, target_d1, target_d2, target_d3, target_d4 = target
-                data = data.to(self.device)
-                target_nd = target_nd.to(self.device)
-                target_d1 = target_d1.to(self.device)
-                target_d2 = target_d2.to(self.device)
-                target_d3 = target_d3.to(self.device)
-                target_d4 = target_d4.to(self.device)
+        for i in range(n_epochs):
+            for batch_idx, (images, length_labels, digits_labels) in enumerate(train_loader):
+                start_time = time.time()
+                images = images.to(device)
+                length_labels = length_labels.to(device)
+                digits_labels = [digit_labels.to(device) for digit_labels in digits_labels]
+                length_logits, digit1_logits, digit2_logits, digit3_logits, digit4_logits = model.train()(images)
+                loss = self._compute_loss(length_logits, digit1_logits, digit2_logits, digit3_logits,
+                                          digit4_logits, length_labels, digits_labels)
 
-                npimg = data[0].numpy()
-                cv2.imshow('image', np.transpose(npimg, (1, 2, 0)))
-                cv2.waitKey(0)
-                print(target_nd[0])
-                print(target_d1[0])
-                print(target_d2[0])
-                print(target_d3[0])
-                print(target_d4[0])
-
-                npimg = data[1].numpy()
-                cv2.imshow('image', np.transpose(npimg, (1, 2, 0)))
-                cv2.waitKey(0)
-                print(target_nd[1])
-                print(target_d1[1])
-                print(target_d2[1])
-                print(target_d3[1])
-                print(target_d4[1])
-
-                npimg = data[2].numpy()
-                cv2.imshow('image', np.transpose(npimg, (1, 2, 0)))
-                cv2.waitKey(0)
-                print(target_nd[2])
-                print(target_d1[2])
-                print(target_d2[2])
-                print(target_d3[2])
-                print(target_d4[2])
-
-                npimg = data[3].numpy()
-                cv2.imshow('image', np.transpose(npimg, (1, 2, 0)))
-                cv2.waitKey(0)
-                print(target_nd[3])
-                print(target_d1[3])
-                print(target_d2[3])
-                print(target_d3[3])
-                print(target_d4[3])
-
-                ## find the loss and update the model parameters accordingly
-                # reset the gradients
                 optimizer.zero_grad()
-                # obtain the prediction
-                pred_nd, pred_d1, pred_d2, pred_d3, pred_d4 = model(data)
-                # calculate the error
-                loss_nd = criterion(pred_nd, target_nd)
-                loss_d1 = criterion(pred_d1, target_d1)
-                loss_d2 = criterion(pred_d2, target_d2)
-                loss_d3 = criterion(pred_d3, target_d3)
-                loss_d4 = criterion(pred_d4, target_d4)
-                loss = loss_nd + loss_d1 + loss_d2 + loss_d3 + loss_d4
-                # backpropagate the error
                 loss.backward()
                 optimizer.step()
-                ## record the average training loss
-                train_loss = train_loss + ((1 / (batch_idx + 1)) * (loss.data - train_loss))
-                # eval
-                print(pred_nd)
-                length_prediction = pred_nd.max(1)[1]
-                digit1_prediction = pred_d1.max(1)[1]
-                digit2_prediction = pred_d2.max(1)[1]
-                digit3_prediction = pred_d3.max(1)[1]
-                digit4_prediction = pred_d4.max(1)[1]
-                print(length_prediction)
-                #print('pred nd: {}'.format(pred_nd))
-                #print('max nd pred tensor: {}'.format(length_prediction))
-                #print('nd target tensor: {}'.format(target_nd))
-                number_correct_this = (length_prediction.eq(target_nd) &
-                                       digit1_prediction.eq(target_d1) &
-                                       digit2_prediction.eq(target_d2) &
-                                       digit3_prediction.eq(target_d3) &
-                                       digit4_prediction.eq(target_d4)).sum()
-                number_correct_train = number_correct_train + number_correct_this
-                total_train = total_train + float(data.shape[0])
-            ######################
-            # validate the model #
-            ######################
-            model.eval()
-            number_correct_test = 0
-            total_test = 0
-            for batch_idx, (data, target) in enumerate(test_loader):
-                target_nd, target_d1, target_d2, target_d3, target_d4 = target
-                data = data.to(self.device)
-                target_nd = target_nd.to(self.device)
-                target_d1 = target_d1.to(self.device)
-                target_d2 = target_d2.to(self.device)
-                target_d3 = target_d3.to(self.device)
-                target_d4 = target_d4.to(self.device)
-                ## update the average validation loss
-                # obtain the prediction
-                pred_nd, pred_d1, pred_d2, pred_d3, pred_d4 = model(data)
-                # calculate the error
-                loss_nd = criterion(pred_nd, target_nd)
-                loss_d1 = criterion(pred_d1, target_d1)
-                loss_d2 = criterion(pred_d2, target_d2)
-                loss_d3 = criterion(pred_d3, target_d3)
-                loss_d4 = criterion(pred_d4, target_d4)
-                loss = loss_nd + loss_d1 + loss_d2 + loss_d3 + loss_d4
-                # record the average validation loss
-                valid_loss = valid_loss + ((1 / (batch_idx + 1)) * (loss.data - valid_loss))
-                # eval
+                scheduler.step()
+                step += 1
+                duration += time.time() - start_time
 
-                print(length_prediction)
+                if step % num_steps_to_show_loss == 0:
+                    examples_per_sec = batch_size * num_steps_to_show_loss / duration
+                    duration = 0.0
+                    print('=> %s: step %d, loss = %f, learning_rate = %f (%.1f examples/sec)' % (
+                        datetime.now(), step, loss.item(), scheduler.get_lr()[0], examples_per_sec))
 
+                if step % num_steps_to_check == 0:
+                    losses = np.append(losses, loss.item())
+                    np.save(os.path.join('results', model_name + '_losses.npy'), losses)
+                    print('=> Evaluating on validation dataset...')
+                    accuracy = evaluator.evaluate(model)
+                    print('==> accuracy = %f, best accuracy %f' % (accuracy, best_accuracy))
+                    if accuracy > best_accuracy:
+                        print('=> Model saved to file')
+                        torch.save(model.state_dict(), os.path.join('results', model_name + '.pth'))
+                        best_accuracy = accuracy
 
-                length_prediction = pred_nd.max(1)[1]
-                digit1_prediction = pred_d1.max(1)[1]
-                digit2_prediction = pred_d2.max(1)[1]
-                digit3_prediction = pred_d3.max(1)[1]
-                digit4_prediction = pred_d4.max(1)[1]
-
-                print(length_prediction)
-
-                #print('pred nd: {}'.format(pred_nd))
-                #print('max nd pred tensor: {}'.format(length_prediction))
-                #print('nd target tensor: {}'.format(target_nd))
-                number_correct_this = (length_prediction.eq(target_nd) &
-                                       digit1_prediction.eq(target_d1) &
-                                       digit2_prediction.eq(target_d2) &
-                                       digit3_prediction.eq(target_d3) &
-                                       digit4_prediction.eq(target_d4)).sum()
-                number_correct_test = number_correct_test + number_correct_this
-                total_test = total_test + float(data.shape[0])
-                #print('number correct this: {}'.format(number_correct_this))
-            # print training statistics
-            accuracy_train = number_correct_train.item() / total_train * 100.
-            accuracy_test = number_correct_test.item() / total_test * 100.
-            end = time.time()
-            print('Train: correct {} - total {}'.format(number_correct_train, total_train))
-            print('Test: correct {} - total {}'.format(number_correct_test, total_test))
-            print('Epoch: {} \tTraining Loss: {:.6f} \tValidation Loss: {:.6f} \tTrainig Accuracy: {}% \t Validation Accuracy: {} \tTime: {}'.format(
-                epoch,
-                train_loss, valid_loss, accuracy_train, accuracy_test, (end - start) / 60
-                ))
-        # return trained model
-        return model
+    def _compute_loss(self, length_logits, digit1_logits, digit2_logits, digit3_logits, digit4_logits, length_labels, digits_labels):
+        length_cross_entropy = torch.nn.functional.cross_entropy(length_logits, length_labels)
+        digit1_cross_entropy = torch.nn.functional.cross_entropy(digit1_logits, digits_labels[0])
+        digit2_cross_entropy = torch.nn.functional.cross_entropy(digit2_logits, digits_labels[1])
+        digit3_cross_entropy = torch.nn.functional.cross_entropy(digit3_logits, digits_labels[2])
+        digit4_cross_entropy = torch.nn.functional.cross_entropy(digit4_logits, digits_labels[3])
+        loss = length_cross_entropy + digit1_cross_entropy + digit2_cross_entropy + digit3_cross_entropy + digit4_cross_entropy
+        return loss
