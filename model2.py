@@ -6,7 +6,7 @@ import torch.jit
 import torch.nn as nn
 
 
-class Model(torch.jit.ScriptModule):
+class Model(nn.Module):
     CHECKPOINT_FILENAME_PATTERN = 'model-{}.pth'
 
     __constants__ = ['_hidden1', '_hidden2', '_hidden3', '_hidden4', '_hidden5',
@@ -88,7 +88,6 @@ class Model(torch.jit.ScriptModule):
         self._digit3 = nn.Sequential(nn.Linear(3072, 11))
         self._digit4 = nn.Sequential(nn.Linear(3072, 11))
 
-    @torch.jit.script_method
     def forward(self, x):
         x = self._hidden1(x)
         x = self._hidden2(x)
