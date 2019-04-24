@@ -26,14 +26,14 @@ class Trainer(object):
         train_transform = transforms.Compose([
             transforms.RandomCrop([54, 54]),
             transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                 std=[0.229, 0.224, 0.225])
+            #transforms.Normalize(mean=[0.5, 0.5, 0.5],
+            #                     std=[0.5, 0.5, 0.5])
         ])
         validation_transform = transforms.Compose([
             transforms.CenterCrop([54, 54]),
             transforms.ToTensor(),
-            transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                 std=[0.229, 0.224, 0.225])
+            #transforms.Normalize(mean=[0.5, 0.5, 0.5],
+            #                     std=[0.5, 0.5, 0.5])
         ])
         # load the dataset and apply all the transformation in the GPU before creating the DataLoader
         train_torch_dataset = TorchDataSet(train['image'],
@@ -43,10 +43,10 @@ class Trainer(object):
                                           test[['number_digits', 'd1', 'd2', 'd3', 'd4']],
                                           validation_transform)
         # create the data loaders
-        self.train_loader = DataLoader(train_torch_dataset, batch_size=64, shuffle=True,
+        self.train_loader = DataLoader(train_torch_dataset, batch_size=4, shuffle=True,
                                        num_workers=4)
-        self.test_loader = DataLoader(test_torch_dataset, batch_size=64, shuffle=True,
-                                    num_workers=4)
+        self.test_loader = DataLoader(test_torch_dataset, batch_size=4, shuffle=True,
+                                      num_workers=4)
         # load the pretrained model
         self.vgg16_pretrained = VGG16Pretrained()
         print(self.vgg16_pretrained)
@@ -70,7 +70,6 @@ class Trainer(object):
 
     def _train(self, n_epochs, loaders, test_loader, model, optimizer, criterion, save_path):
         # initialize tracker for minimum validation loss
-        valid_loss_min = np.Inf
         for epoch in range(1, n_epochs+1):
             start = time.time()
             # initialize variables to monitor training and validation loss
@@ -91,6 +90,43 @@ class Trainer(object):
                 target_d2 = target_d2.to(self.device)
                 target_d3 = target_d3.to(self.device)
                 target_d4 = target_d4.to(self.device)
+
+                npimg = data[0].numpy()
+                cv2.imshow('image', np.transpose(npimg, (1, 2, 0)))
+                cv2.waitKey(0)
+                print(target_nd[0])
+                print(target_d1[0])
+                print(target_d2[0])
+                print(target_d3[0])
+                print(target_d4[0])
+
+                npimg = data[1].numpy()
+                cv2.imshow('image', np.transpose(npimg, (1, 2, 0)))
+                cv2.waitKey(0)
+                print(target_nd[1])
+                print(target_d1[1])
+                print(target_d2[1])
+                print(target_d3[1])
+                print(target_d4[1])
+
+                npimg = data[2].numpy()
+                cv2.imshow('image', np.transpose(npimg, (1, 2, 0)))
+                cv2.waitKey(0)
+                print(target_nd[2])
+                print(target_d1[2])
+                print(target_d2[2])
+                print(target_d3[2])
+                print(target_d4[2])
+
+                npimg = data[3].numpy()
+                cv2.imshow('image', np.transpose(npimg, (1, 2, 0)))
+                cv2.waitKey(0)
+                print(target_nd[3])
+                print(target_d1[3])
+                print(target_d2[3])
+                print(target_d3[3])
+                print(target_d4[3])
+
                 ## find the loss and update the model parameters accordingly
                 # reset the gradients
                 optimizer.zero_grad()
@@ -106,14 +142,16 @@ class Trainer(object):
                 # backpropagate the error
                 loss.backward()
                 optimizer.step()
-                ## record the average training loss, using something like
+                ## record the average training loss
                 train_loss = train_loss + ((1 / (batch_idx + 1)) * (loss.data - train_loss))
                 # eval
+                print(pred_nd)
                 length_prediction = pred_nd.max(1)[1]
                 digit1_prediction = pred_d1.max(1)[1]
                 digit2_prediction = pred_d2.max(1)[1]
                 digit3_prediction = pred_d3.max(1)[1]
                 digit4_prediction = pred_d4.max(1)[1]
+                print(length_prediction)
                 #print('pred nd: {}'.format(pred_nd))
                 #print('max nd pred tensor: {}'.format(length_prediction))
                 #print('nd target tensor: {}'.format(target_nd))
@@ -152,11 +190,18 @@ class Trainer(object):
                 # record the average validation loss
                 valid_loss = valid_loss + ((1 / (batch_idx + 1)) * (loss.data - valid_loss))
                 # eval
+
+                print(length_prediction)
+
+
                 length_prediction = pred_nd.max(1)[1]
                 digit1_prediction = pred_d1.max(1)[1]
                 digit2_prediction = pred_d2.max(1)[1]
                 digit3_prediction = pred_d3.max(1)[1]
                 digit4_prediction = pred_d4.max(1)[1]
+
+                print(length_prediction)
+
                 #print('pred nd: {}'.format(pred_nd))
                 #print('max nd pred tensor: {}'.format(length_prediction))
                 #print('nd target tensor: {}'.format(target_nd))
