@@ -29,16 +29,22 @@ class VGG16Pretrained(nn.Module):
         layer_d3 = nn.Linear(last_layer_input, 11)
         layer_d4 = nn.Linear(last_layer_input, 11)
         """
-        vgg16 = models.vgg16(pretrained=True)
+
+        vgg16 = models.vgg16_bn(pretrained=True)
         print(vgg16)
         # copy vgg16 features and create sequence
         self.features = nn.Sequential(*list(vgg16.features.children()))
         # copy vgg16 classifier except the last layer
         classifier = list(vgg16.classifier.children())[:-1]
+        self.avgpool = nn.AdaptiveAvgPool2d((7,7))
         # modify first layer and create sequence
-        first_layer = nn.Linear(512, 4096)
-        classifier[0] = first_layer
-        self.classifier = nn.Sequential(*classifier)
+        first_layer = nn.Linear(512*7*7, 4096, bias=True)
+        second_layer = nn.BatchNorm1d(4096)
+        third_layer = nn.ReLU()
+        fourth_layer = nn.Linear(4096, 4096, bias=True)
+        fifth_layer = nn.BatchNorm1d(4096)
+        sixth_layer = nn.ReLU()
+        self.classifier = nn.Sequential(*[first_layer, second_layer, third_layer, fourth_layer, fifth_layer, sixth_layer])
         # create last layers
         self.layer_number_digits = nn.Linear(4096, 5)
         self.layer_d1 = nn.Linear(4096, 11)
@@ -48,6 +54,7 @@ class VGG16Pretrained(nn.Module):
 
     def forward(self, x):
         out1 = self.features(x)
+        out1 = self.avgpool(out1)
         out1 = out1.view(x.size(0), -1)
         out2 = self.classifier(out1)
         number_digits = self.layer_number_digits(out2)
