@@ -1,49 +1,49 @@
 import os
 from pathlib import Path
+
 from PIL import Image
+
 import torch
 import torch.utils.data
-from torchvision import transforms
-
 from torchdataset import TorchDataSet
+from torchvision import transforms
 
 
 class Evaluator(object):
+
     def __init__(self, test, cuda):
+        # define transform
         transform = transforms.Compose([
             transforms.CenterCrop([54, 54]),
             transforms.ToTensor(),
             transforms.Normalize([0.5, 0.5, 0.5], [0.5, 0.5, 0.5])
         ])
-        self._loader = torch.utils.data.DataLoader(TorchDataSet(test['image'],
+        self.loader = torch.utils.data.DataLoader(TorchDataSet(test['image'],
                                                                 test[['number_digits', 'd1', 'd2', 'd3', 'd4']],
                                                                 transform),
                                                    batch_size=128, shuffle=False)
         self.transform = transform
+        # define device
         self.device = torch.device('cpu')
         if torch.cuda.is_available():
             self.device = torch.device(cuda)
 
     def evaluate(self, model):
-        num_correct = 0
-
+        corrects = 0
         with torch.no_grad():
-            for batch_idx, (images, length_labels, digits_labels) in enumerate(self._loader):
+            for batch_idx, (images, length_labels, digits_labels) in enumerate(self.loader):
+                # get batch data and move to device
                 images = images.to(self.device)
-                length_labels = length_labels.to(self.device)
-                digits_labels = [digit_labels.to(self.device) for digit_labels in digits_labels]
-                length_logits, digit1_logits, digit2_logits, digit3_logits, digit4_logits = model.eval()(images)
-
-                length_prediction = length_logits.max(1)[1]
-                digit1_prediction = digit1_logits.max(1)[1]
-                digit2_prediction = digit2_logits.max(1)[1]
-                digit3_prediction = digit3_logits.max(1)[1]
-                digit4_prediction = digit4_logits.max(1)[1]
-
-                num_correct += (digit1_prediction.eq(digits_labels[0]) &
-                                digit2_prediction.eq(digits_labels[1]) &
-                                digit3_prediction.eq(digits_labels[2]) &
-                                digit4_prediction.eq(digits_labels[3])).cpu().sum()
-
-        accuracy = num_correct.item() / len(self._loader.dataset)
-        return accuracy
+                number_digits = length_labels.to(self.device)
+                digits = [digit_labels.to(self.device) for digit_labels in digits_labels]
+                # eval the model
+                number_digits_pred, d1_pred, d2_pred, d3_pred, d4_pred = model.eval()(images)
+                # get predictions
+                number_digits = number_digits_pred.max(1)[1]
+                d1 = d1_pred.max(1)[1]
+                d2 = d2_pred.max(1)[1]
+                d3 = d3_pred.max(1)[1]
+                d4 = d4_pred.max(1)[1]
+                # compare
+                corrects += ((d1.eq(digits[0])) & (d2.eq(digits[1])) & (d3.eq(digits[2])) & (d4.eq(digits[3])))  .sum()
+        return corrects.item() / len(self.loader.dataset)

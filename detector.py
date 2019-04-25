@@ -12,7 +12,7 @@ class Detector(object):
     def __init__(self, classifier):
         self.classifier = classifier
 
-    def detect(self, image, window_size=(100, 64), window_step=8, pyramid_scale=1.5, yield_first=False):
+    def detect(self, image, window_size=(100, 60), window_step=8, pyramid_scale=1.5, yield_first=False):
         detected_list = []
         for i, resized in enumerate(self._pyramid(image, scale=pyramid_scale, yield_first=yield_first)):
             #resized.show()
@@ -21,11 +21,13 @@ class Detector(object):
                 if window.size[0] != window_size[0] or window.size[1] != window_size[1]:
                     continue
                 nd, d1, d2, d3, d4, score = self.classifier.predict(window)
-                #image = numpy.array(resized)# IDEA:
-                #image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-                #cv2.rectangle(image, (x, y), (x + window_size[0], y + window_size[1]), (0, 255, 0), 2)
-                #cv2.imshow('image', image)
-                #cv2.waitKey(0)
+                """
+                image = numpy.array(resized)# IDEA:
+                image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
+                cv2.rectangle(image, (x, y), (x + window_size[0], y + window_size[1]), (0, 255, 0), 2)
+                cv2.imshow('image', image)
+                cv2.waitKey(0)
+                """
                 if nd >= 0 and (d1 != 0 or d2 != 0 or d3 != 0 or d4 != 0):
                     digits = [d1, d2, d3, d4]
                     digits = [0 if d == 10 else d for d in digits]
@@ -54,5 +56,4 @@ class Detector(object):
         image = numpy.array(image)
         for y in range(0, image.shape[0], step_size):
             for x in range(0, image.shape[1], step_size):
-    			# yield the current window
                 yield (x, y, Image.fromarray(image[y:y + window_size[1], x:x + window_size[0]].astype(numpy.uint8)))
