@@ -34,5 +34,9 @@ class Predictor(object):
             digit3_prediction = digit3_logits.max(1)[1]
             digit4_prediction = digit4_logits.max(1)[1]
 
-            print('length:', length_prediction.item())
-            print('digits:', digit1_prediction.item(), digit2_prediction.item(), digit3_prediction.item(), digit4_prediction.item())
+            score = length_logits.max(1)[0] + digit1_logits.max(1)[0] + digit2_logits.max(1)[0] + digit3_logits.max(1)[0] + digit4_logits.max(1)[0]
+            #print('score: {}'.format(score))
+            #print('length:', length_prediction.item())
+            #print('digits:', digit1_prediction.item(), digit2_prediction.item(), digit3_prediction.item(), digit4_prediction.item())
+
+            return length_prediction.item(), digit1_prediction.item(), digit2_prediction.item(), digit3_prediction.item(), digit4_prediction.item(), score
