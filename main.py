@@ -68,17 +68,17 @@ def main(args):
         # detect the number for different images
         predictor = Predictor(model, training_options['cuda'])
         detector = Detector(predictor)
-        #print('Detecting numbers in 1.jpge (~3 min without GPU)')
-        #image_helper(detector, image_1, out_name='1')
-        #print('Detecting numbers in 2.jpge (~3 min without GPU)')
+        print('Detecting numbers in 1.jpge (~3 min without GPU)')
+        image_helper(detector, image_1, out_name='1')
+        print('Detecting numbers in 2.jpge (~3 min without GPU)')
         image_helper(detector, image_2, window_size=(80, 50), out_name='2')
         print('Detecting numbers in 3.jpge (~3 min without GPU)')
-        #image_helper(detector, image_3, out_name='3')
-        #print('Detecting numbers in 4.jpge (~3 min without GPU)')
-        #image_helper(detector, image_4, window_size=(120, 80), out_name='4')
-        #print('Detecting numbers in 5.jpge (~3 min without GPU)')
-        #image_helper(detector, image_5, out_name='5')
-        #print('Done. Output in ./output/*')
+        image_helper(detector, image_3, out_name='3')
+        print('Detecting numbers in 4.jpge (~3 min without GPU)')
+        image_helper(detector, image_4, window_size=(120, 80), out_name='4')
+        print('Detecting numbers in 5.jpge (~3 min without GPU)')
+        image_helper(detector, image_5, out_name='5')
+        print('Done. Output in ./output/*')
 
     else: # video
         # load the model to compute predictions
@@ -88,7 +88,7 @@ def main(args):
         # generate the video
         predictor = Predictor(model, training_options['cuda'])
         detector = Detector(predictor)
-        video_helper('video.mp4', 1, predictor, detector)
+        video_helper('video.mp4', 10, predictor, detector)
 
 
 if __name__ == '__main__':
