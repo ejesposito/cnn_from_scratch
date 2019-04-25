@@ -19,7 +19,7 @@ from videohelper import image_helper, video_helper
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--mode', default='detect')
-parser.add_argument('--model', default='custom')
+parser.add_argument('--model', default='vgg16_pretrained')
 parser.add_argument('--cuda', default='cuda:0')
 parser.add_argument('--n_workers', default=0, type=int)
 parser.add_argument('--epochs', default=100, type=int)
