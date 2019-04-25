@@ -63,8 +63,8 @@ def video_helper(video_name, fps, predictor, detector):
         cv2.putText(image, '{}'.format(int(str(int(d1)) + str(int(d2)) + str(int(d3)) + str(int(d4)))),
                     (int(x1), int(y2) + int(50 * (scale ** i))), cv2.FONT_HERSHEY_SIMPLEX,
                     2, (0, 255, 0), 2)
-        cv2.imshow('image', image)
-        cv2.waitKey(0)
+        #cv2.imshow('image', image)
+        #cv2.waitKey(0)
         video_out.write(image)
         image = image_gen.__next__()
         frame_num += 1
